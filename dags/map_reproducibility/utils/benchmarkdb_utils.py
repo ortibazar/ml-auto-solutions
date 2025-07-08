@@ -36,6 +36,7 @@ def write_run(
     tokens_per_second: float,
     writer_path: str,
     run_success: bool = True,  # True because if mfu is none, writing to db will fail anyway.
+    run_source: str = "automation",
     run_type: str = "perf_regression",
     run_release_status: str = "local",
     other_metrics_in_json: str = "",
@@ -76,6 +77,7 @@ def write_run(
     number_of_steps: The number of steps taken in the run.
     mfu: The MFU (model flops utilization) achieved in the run.
     tokens_per_second: The tokens per second achieved in the run.
+    run_source: The source of run (default: "automation").
     run_type: The type of run (default: "perf_optimization").
     run_release_status: possible values "local" ( code changes are done locally), "prep_release" ( all code code changes are present in the image)
     other_metrics_in_json: A JSON string containing other metrics.
@@ -238,7 +240,7 @@ def write_run(
         configs_dataset=dataset,
         logs_artifact_directory="",
         update_person_ldap=update_person_ldap,
-        run_source="automation",
+        run_source=run_source,
         run_type=run_type,
         run_release_status=run_release_status,
         workload_precision=precision,

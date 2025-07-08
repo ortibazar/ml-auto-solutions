@@ -17,7 +17,7 @@
 import os
 import logging
 import tempfile
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from airflow.decorators import task
 from airflow.hooks.subprocess import SubprocessHook
@@ -63,6 +63,8 @@ from dags.map_reproducibility.utils.common_utils import (
 )
 from dags.map_reproducibility.utils.sample_workload_utils import handle_profiler, assemble_sample_united_workload_commands, execute_workload_commands
 from dags.map_reproducibility.utils.constants import Optimizer, KUEUE_NAME, NUM_STEPS, BUCKET_NAME
+
+from dags.mlcompass import mlcompass
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -316,8 +318,12 @@ def run_internal_united_workload(
     is_dag_run: bool = False,
     backfill: bool = False,
     test_run: bool = True,
+    context: Optional[dict[str, Any]] = None,
 ) -> Dict[str, Any]:
   """Run a sample or DAG internal workload (NeMo or MaxText)."""
+  print(f"Running dag config: {relative_config_yaml_path}")
+  mlcompass_state = mlcompass.load_state(context)
+  mlcompass.save_state(mlcompass_state)
 
   with tempfile.TemporaryDirectory() as tmpdir:
     # Clone repos if paths are not provided
@@ -425,6 +431,10 @@ def run_internal_united_workload(
     run_type, comment = get_internal_run_type_and_comment(is_dag_run, backfill)
     is_db_test_run = False if backfill else test_run
 
+    run_source = "automation"
+    if mlcompass_state:
+      run_source = f'mlcompass_{mlcompass_state.execution_mode}'
+
     write_run(
         model_id=config.HELM_NAME_MODEL_ID,
         hardware_id=config.HYPERCOMPUTER,
@@ -442,6 +452,7 @@ def run_internal_united_workload(
         mfu=mfu,
         tokens_per_second=1,
         writer_path=get_bq_writer_path(tmpdir),
+        run_source=run_source,
         run_type=run_type,
         comment=comment,
         is_test=is_db_test_run,
@@ -450,6 +461,13 @@ def run_internal_united_workload(
         workload_others=str(config),
         experiment_id=job_name,
     )
+
+    mlcompass_state.metrics = {
+      "median_step_time": average_step_time,
+      "e2e_time": average_step_time * NUM_STEPS,
+      "mfu" : mfu,
+    }
+    mlcompass.save_state(mlcompass_state)
 
     return {"success": True, "job_name": job_name, "metrics_bucket": gcs_bucket}
 
@@ -462,6 +480,7 @@ def run_internal_dag_united_workload(
     timeout: int,
     image_version: str,
     workload_launcher: str,
+    **context
 ) -> Dict[str, Any]:
   """Airflow Task wrapper."""
   return run_internal_united_workload(
@@ -475,4 +494,5 @@ def run_internal_dag_united_workload(
       is_dag_run=True,
       backfill=backfill,
       test_run=test_run,
+      context=context,
   )
