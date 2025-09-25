@@ -13,18 +13,20 @@
 # limitations under the License.
 
 """
-A DAG to run perf tests for MaxText model configs on v6e.
+A DAG to run perf tests for MaxText model configs on v6e. #42
 """
 import datetime
 from airflow import models
+from airflow.models.taskmixin import DAGNode
 from airflow.utils.task_group import TaskGroup
 from dags import composer_env
 from dags.common import test_owner
 from dags.common.vm_resource import TpuVersion, Zone, Project, XpkClusters, DockerImage
 from dags.common.model_configs import MaxTextTrilliumModelConfigs
+from xlml.apis import mlcompass
 from dags.multipod.configs import maxtext_sweep_gke_config
 from dags.multipod.configs.common import SetupMode
-from xlml.apis import metric_config
+from xlml.apis import metric_config, task
 
 # Run once a day at 3 am UTC (7 pm PST / 8 pm PDT)
 CONIFGS_SCHEDULED_TIME = "0 3 * * *" if composer_env.is_prod_env() else None
@@ -60,6 +62,7 @@ with models.DAG(
     ],
     start_date=datetime.datetime(2024, 2, 19),
     catchup=False,
+    # concurrency=4, # Limit concurrency to avoid launching all tests at once
 ) as dag:
   quarantine_task_group = TaskGroup(
       group_id="Quarantine", dag=dag, prefix_group_id=False
@@ -110,11 +113,9 @@ with models.DAG(
       )
       all_tests += maxtext_sweep_gke_test
 
-  # Add dependencies between the tests so they are not all launched at once
-  chain_num = 4
-  prev = all_tests[0].run_with_name_gen_and_quarantine(quarantine_task_group)
-  for i in range(1, len(all_tests)):
-    curr = all_tests[i].run_with_name_gen_and_quarantine(quarantine_task_group)
-    if i % chain_num != 0:
-      prev >> curr
-    prev = curr
+  all_tests = all_tests[:3]
+  nodes = []
+  for test in all_tests:
+    node = test.run_with_name_gen_and_quarantine(quarantine_task_group)
+    nodes.append(node)
+  mlcompass.register(nodes)

@@ -18,7 +18,9 @@ set -e
 
 COMPOSER_ENVIRONMENT="test_env"
 GCS_DAGS_FOLDER=$1
-FOLDERS_TO_UPLOAD=("dags" "xlml")
+FOLDERS_TO_UPLOAD=("dags/common" "dags/multipod" "dags/mlcompass" "xlml")
+
+gsutil -m rsync -c -d dags "$GCS_DAGS_FOLDER"/dags
 
 # TODO(ranran): handle tests from Jsonnet
 for folder in "${FOLDERS_TO_UPLOAD[@]}"

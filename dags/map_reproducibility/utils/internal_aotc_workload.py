@@ -64,7 +64,7 @@ from dags.map_reproducibility.utils.common_utils import (
 from dags.map_reproducibility.utils.sample_workload_utils import handle_profiler, assemble_sample_united_workload_commands, execute_workload_commands
 from dags.map_reproducibility.utils.constants import Optimizer, KUEUE_NAME, NUM_STEPS, BUCKET_NAME
 
-from dags.mlcompass import mlcompass
+from xlml.apis import mlcompass
 
 # Configure logging
 logger = logging.getLogger(__name__)

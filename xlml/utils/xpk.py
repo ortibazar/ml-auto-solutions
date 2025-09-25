@@ -79,7 +79,7 @@ def generate_workload_id(benchmark_id: str) -> str:
   return f"{short_benchmark}{short_id}"
 
 
-@task
+@task(retries=0)
 def run_workload(
     task_id: str,
     cluster_project: str,
@@ -99,6 +99,8 @@ def run_workload(
     xpk_branch: str = MAIN_BRANCH,
 ):
   """Run workload through xpk tool."""
+  if 1 == 1:
+    raise AirflowFailException("Workload failed")
 
   with tempfile.TemporaryDirectory() as tmpdir:
     if accelerator_type in [
@@ -302,7 +304,7 @@ def wait_for_workload_completion(
   return True
 
 
-@task(trigger_rule="all_done")
+@task(trigger_rule="all_done", retries=0)
 def clean_up_workload(
     workload_id: str,
     project_id: str,
@@ -311,6 +313,8 @@ def clean_up_workload(
     xpk_branch: str = MAIN_BRANCH,
 ) -> bool:
   """Delete workload."""
+  if 1 == 1:
+    raise AirflowFailException("Clean-up failed")
   with tempfile.TemporaryDirectory() as tmpdir:
     workload_delete_cmd = (
         f"python {tmpdir}/xpk/xpk.py workload delete"
